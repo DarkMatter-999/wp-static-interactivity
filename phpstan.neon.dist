@@ -1,7 +1,7 @@
 parameters:
     level: 5
     paths:
-        - DarkMatterPlugin.php
+        - static-interactivity.php
     scanFiles:
         - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
 
@@ -15,6 +15,6 @@ parameters:
     treatPhpDocTypesAsCertain: false
 
     ignoreErrors:
-        - message: '#Call to static method get_instance\(\) on an unknown class DarkMatter_Plugin_Namespace\\Plugin#'
+        - message: '#Call to static method get_instance\(\) on an unknown class static-interactivity.php_Namespace\\Plugin#'
           paths:
-              - DarkMatterPlugin.php
+              - static-interactivity.php

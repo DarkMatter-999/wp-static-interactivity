@@ -29,14 +29,6 @@ class Assets {
 	 */
 	public function __construct() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'enqueue_block_assets', array( $this, 'enqueue_block_assets' ) );
-		add_action(
-			'enqueue_block_editor_assets',
-			array(
-				$this,
-				'enqueue_block_editor_assets',
-			)
-		);
 	}
 
 	/**
@@ -73,31 +65,6 @@ class Assets {
 		wp_enqueue_script(
 			'main-js',
 			SI_PLUGIN_URL . 'assets/build/js/main.js',
-			$script_asset['dependencies'],
-			$script_asset['version'],
-			true
-		);
-	}
-
-	/**
-	 * Enqueues styles and scripts for the frontend.
-	 *
-	 * @return void
-	 */
-	public function enqueue_block_assets() {
-		$style_asset = include SI_PLUGIN_PATH . 'assets/build/css/screen.asset.php';
-		wp_enqueue_style(
-			'block-css',
-			SI_PLUGIN_URL . 'assets/build/css/screen.css',
-			$style_asset['dependencies'],
-			$style_asset['version']
-		);
-
-		$script_asset = include SI_PLUGIN_PATH . 'assets/build/js/screen.asset.php';
-
-		wp_enqueue_script(
-			'block-js',
-			SI_PLUGIN_URL . 'assets/build/js/screen.js',
 			$script_asset['dependencies'],
 			$script_asset['version'],
 			true

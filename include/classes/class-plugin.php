@@ -25,5 +25,6 @@ class Plugin {
 	public function __construct() {
 		Assets::get_instance();
 		Settings::get_instance();
+		Search::get_instance();
 	}
 }

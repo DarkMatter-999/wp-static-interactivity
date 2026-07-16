@@ -40,15 +40,30 @@ class Assets {
 	}
 
 	/**
-	 * Enqueues styles and scripts for the theme.
+	 * Enqueues styles and scripts for the plugin.
 	 *
 	 * @return void
 	 */
 	public function enqueue_assets() {
+		wp_register_script( 'dm-si-settings', '', array(), '1.0.0', true );
+		wp_enqueue_script( 'dm-si-settings' );
+
+		$search_slug = get_option( 'dm_si_search_slug', 'search' );
+
+		wp_add_inline_script(
+			'dm-si-settings',
+			'window.dmSISettings = ' . wp_json_encode(
+				array(
+					'search_slug' => $search_slug,
+				)
+			) . ';',
+			'before'
+		);
+
 		$style_asset = include SI_PLUGIN_PATH . 'assets/build/css/main.asset.php';
 		wp_enqueue_style(
 			'main-css',
-			SI_PLUGIN_PATH . 'assets/build/css/main.css',
+			SI_PLUGIN_URL . 'assets/build/css/main.css',
 			$style_asset['dependencies'],
 			$style_asset['version']
 		);
@@ -57,7 +72,7 @@ class Assets {
 
 		wp_enqueue_script(
 			'main-js',
-			SI_PLUGIN_PATH . 'assets/build/js/main.js',
+			SI_PLUGIN_URL . 'assets/build/js/main.js',
 			$script_asset['dependencies'],
 			$script_asset['version'],
 			true
@@ -73,7 +88,7 @@ class Assets {
 		$style_asset = include SI_PLUGIN_PATH . 'assets/build/css/screen.asset.php';
 		wp_enqueue_style(
 			'block-css',
-			SI_PLUGIN_PATH . 'assets/build/css/screen.css',
+			SI_PLUGIN_URL . 'assets/build/css/screen.css',
 			$style_asset['dependencies'],
 			$style_asset['version']
 		);
@@ -82,33 +97,7 @@ class Assets {
 
 		wp_enqueue_script(
 			'block-js',
-			SI_PLUGIN_PATH . 'assets/build/js/screen.js',
-			$script_asset['dependencies'],
-			$script_asset['version'],
-			true
-		);
-	}
-
-	/**
-	 * Enqueues styles and scripts for the block editor.
-	 *
-	 * @return void
-	 */
-	public function enqueue_block_editor_assets() {
-		$style_asset = include SI_PLUGIN_PATH . 'assets/build/css/editor.asset.php';
-
-		wp_enqueue_style(
-			'editor-css',
-			SI_PLUGIN_PATH . 'assets/build/css/editor.css',
-			$style_asset['dependencies'],
-			$style_asset['version']
-		);
-
-		$script_asset = include SI_PLUGIN_PATH . 'assets/build/js/editor.asset.php';
-
-		wp_enqueue_script(
-			'editor-js',
-			SI_PLUGIN_PATH . 'assets/build/js/editor.js',
+			SI_PLUGIN_URL . 'assets/build/js/screen.js',
 			$script_asset['dependencies'],
 			$script_asset['version'],
 			true

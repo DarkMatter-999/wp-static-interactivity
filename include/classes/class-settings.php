@@ -36,6 +36,7 @@ class Settings {
 		register_setting( 'dm_si_options', 'dm_si_supabase_url', 'esc_raw_url' );
 		register_setting( 'dm_si_options', 'dm_si_supabase_publishable_key', 'sanitize_text_field' );
 		register_setting( 'dm_si_options', 'dm_si_supabase_secret_key', 'sanitize_text_field' );
+		register_setting( 'dm_si_options', 'dm_si_search_slug', 'sanitize_url' );
 	}
 
 	/**
@@ -78,6 +79,10 @@ class Settings {
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Supabase Secret Key', 'dm-static-interactivity' ); ?></th>
 						<td><input type="password" name="dm_si_supabase_secret_key" value="<?php echo esc_attr( get_option( 'dm_si_supabase_secret_key' ) ); ?>" class="regular-text" /></td>
+					</tr>
+					<tr valign="top">
+						<th scope="row"><?php esc_html_e( 'Search Slug', 'dm-static-interactivity' ); ?></th>
+						<td><input type="text" name="dm_si_search_slug" value="<?php echo esc_attr( get_option( 'dm_si_search_slug', 'search' ) ); ?>" class="regular-text" /></td>
 					</tr>
 				</table>
 				<?php submit_button(); ?>

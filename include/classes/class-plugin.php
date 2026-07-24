@@ -22,7 +22,7 @@ class Plugin {
 	 *
 	 * @return void
 	 */
-	public function __construct() {
+	private function __construct() {
 		Assets::get_instance();
 		Settings::get_instance();
 		Search::get_instance();

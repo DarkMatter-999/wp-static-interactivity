@@ -1,6 +1,7 @@
 <?php
 /**
- * Search class for handling search functionality.
+ * Syncs published posts/pages to a Supabase search_index table and serves
+ * search results from Supabase on the front end.
  *
  * @package DM_Static_Interactivity
  */
@@ -10,7 +11,7 @@ namespace DM_Static_Interactivity;
 use DM_Static_Interactivity\Traits\Singleton;
 
 /**
- * Search class for handling search functionality.
+ * Search class.
  *
  * @since 1.0.0
  */
@@ -18,13 +19,21 @@ class Search {
 	use Singleton;
 
 	/**
+	 * Post types that get synced to the Supabase search index.
+	 *
+	 * @var string[]
+	 */
+	const SYNCED_POST_TYPES = array( 'post', 'page' );
+
+	/**
 	 * Constructor for the Search class.
 	 *
 	 * @return void
 	 */
-	public function __construct() {
+	private function __construct() {
 		add_action( 'init', array( $this, 'add_search_rewrite_rule' ) );
-		add_action( 'save_post', array( $this, 'sync_post_to_supabase' ), 10, 3 );
+		add_action( 'save_post', array( $this, 'schedule_post_sync' ), 10, 2 );
+		add_action( 'dm_si_sync_post_to_supabase', array( $this, 'sync_post_to_supabase' ) );
 		add_action( 'before_delete_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
 		add_action( 'wp_trash_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
 		add_action( 'render_block', array( $this, 'override_search_loop' ), 10, 2 );
@@ -38,53 +47,71 @@ class Search {
 	 * @return void
 	 */
 	public function add_search_rewrite_rule() {
-		$search_slug = get_option( 'dm_si_search_slug', 'search' );
+		$search_slug = Options::search_slug();
 		add_rewrite_rule( '^' . $search_slug . '/?$', 'index.php?s=', 'top' );
 	}
 
 	/**
-	 * Sync post data to Supabase when a post is saved or updated.
+	 * Schedule an async Supabase sync for a saved post instead of doing it
+	 * inline on save_post, so a slow/unreachable Supabase never holds up
+	 * saving content in wp-admin.
 	 *
 	 * @param int      $post_id Post ID.
 	 * @param \WP_Post $post    Post object.
-	 * @param bool     $update  Whether this is an existing post being updated.
 	 *
 	 * @return void
 	 */
-	public static function sync_post_to_supabase( $post_id, $post, $update ) {
+	public function schedule_post_sync( $post_id, $post ) {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
 
-		if ( 'publish' !== $post->post_status ) {
-			if ( $update ) {
-				self::delete_post_from_supabase( $post_id );
-			}
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
 			return;
 		}
 
-		$featured_image_url = get_the_post_thumbnail_url( $post_id, 'full' );
-		$permalink          = get_permalink( $post_id );
+		if ( ! in_array( $post->post_type, self::SYNCED_POST_TYPES, true ) ) {
+			return;
+		}
 
-		$parsed_url         = wp_parse_url( $permalink );
-		$relative_permalink = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '/';
+		if ( ! wp_next_scheduled( 'dm_si_sync_post_to_supabase', array( $post_id ) ) ) {
+			wp_schedule_single_event( time(), 'dm_si_sync_post_to_supabase', array( $post_id ) );
+		}
+	}
 
-		$data = array(
-			'post_id'            => $post_id,
-			'title'              => $post->post_title,
-			'excerpt'            => wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : wp_trim_words( $post->post_content, apply_filters( 'excerpt_length', 55 ) ) ),
-			'featured_image_url' => $featured_image_url ? $featured_image_url : null,
-			'permalink'          => $relative_permalink,
-		);
+	/**
+	 * Sync post data to Supabase. Runs on the dm_si_sync_post_to_supabase
+	 * cron event scheduled by schedule_post_sync(), not directly on save_post.
+	 *
+	 * @param int $post_id Post ID.
+	 *
+	 * @return void
+	 */
+	public function sync_post_to_supabase( $post_id ) {
+		$post = get_post( $post_id );
+
+		if ( ! $post ) {
+			return;
+		}
+
+		if ( 'publish' !== $post->post_status ) {
+			$this->delete_post_from_supabase( $post_id );
+			return;
+		}
 
 		$response = Supabase_API::request(
 			'search_index',
 			'POST',
-			$data,
+			self::build_search_index_row( $post ),
 			array(
 				'Prefer' => 'resolution=merge-duplicates,return=representation',
 			)
 		);
+
+		if ( is_wp_error( $response ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional: surface sync failures since this runs in the background with no admin-visible feedback.
+			error_log( '[DM Static Interactivity] Failed to sync post ' . $post_id . ' to Supabase: ' . $response->get_error_message() );
+		}
 	}
 
 	/**
@@ -94,10 +121,32 @@ class Search {
 	 *
 	 * @return void
 	 */
-	public static function delete_post_from_supabase( $post_id ) {
+	public function delete_post_from_supabase( $post_id ) {
 		$endpoint = 'search_index?post_id=eq.' . intval( $post_id );
 
-		$response = Supabase_API::request( $endpoint, 'DELETE' );
+		Supabase_API::request( $endpoint, 'DELETE' );
+	}
+
+	/**
+	 * Build the Supabase search_index row for a post.
+	 *
+	 * @param \WP_Post $post Post object.
+	 *
+	 * @return array
+	 */
+	private static function build_search_index_row( $post ) {
+		$featured_image_url = get_the_post_thumbnail_url( $post->ID, 'full' );
+		$permalink          = get_permalink( $post->ID );
+		$parsed_url         = wp_parse_url( $permalink );
+		$relative_permalink = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '/';
+
+		return array(
+			'post_id'            => $post->ID,
+			'title'              => $post->post_title,
+			'excerpt'            => wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : wp_trim_words( $post->post_content, apply_filters( 'excerpt_length', 55 ) ) ),
+			'featured_image_url' => $featured_image_url ? $featured_image_url : null,
+			'permalink'          => $relative_permalink,
+		);
 	}
 
 	/**
@@ -105,7 +154,7 @@ class Search {
 	 *
 	 * @return void
 	 */
-	public static function ajax_replace_index() {
+	public function ajax_replace_index() {
 		check_ajax_referer( 'dm_si_replace_index' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -115,12 +164,16 @@ class Search {
 		$offset = isset( $_POST['offset'] ) ? intval( $_POST['offset'] ) : 0;
 
 		if ( 0 === $offset ) {
+			if ( get_transient( 'dm_si_replace_index_lock' ) ) {
+				wp_send_json_error( 'A search index rebuild is already in progress. Please wait for it to finish.' );
+			}
+			set_transient( 'dm_si_replace_index_lock', true, 5 * MINUTE_IN_SECONDS );
 			Supabase_API::request( 'search_index', 'DELETE' );
 		}
 
 		$query = new \WP_Query(
 			array(
-				'post_type'      => array( 'post', 'page' ),
+				'post_type'      => self::SYNCED_POST_TYPES,
 				'post_status'    => 'publish',
 				'posts_per_page' => 50,
 				'offset'         => $offset,
@@ -134,6 +187,7 @@ class Search {
 		$total    = (int) $query->found_posts;
 
 		if ( empty( $post_ids ) ) {
+			delete_transient( 'dm_si_replace_index_lock' );
 			wp_send_json_success(
 				array(
 					'count' => 0,
@@ -145,20 +199,7 @@ class Search {
 
 		$data = array();
 		foreach ( $post_ids as $post_id ) {
-			$post = get_post( $post_id );
-
-			$featured_image_url = get_the_post_thumbnail_url( $post_id, 'full' );
-			$permalink          = get_permalink( $post_id );
-			$parsed_url         = wp_parse_url( $permalink );
-			$relative_permalink = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '/';
-
-			$data[] = array(
-				'post_id'            => $post_id,
-				'title'              => $post->post_title,
-				'excerpt'            => wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : wp_trim_words( $post->post_content, apply_filters( 'excerpt_length', 55 ) ) ),
-				'featured_image_url' => $featured_image_url ? $featured_image_url : null,
-				'permalink'          => $relative_permalink,
-			);
+			$data[] = self::build_search_index_row( get_post( $post_id ) );
 		}
 
 		$response = Supabase_API::request(
@@ -170,15 +211,23 @@ class Search {
 			)
 		);
 
+		$more = count( $post_ids ) >= 50;
+
+		if ( ! $more || is_wp_error( $response ) ) {
+			delete_transient( 'dm_si_replace_index_lock' );
+		}
+
 		if ( is_wp_error( $response ) ) {
-			wp_send_json_error( $response->get_error_message() );
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- surface the real error for debugging without exposing infra details to the AJAX response.
+			error_log( '[DM Static Interactivity] Search index rebuild failed at offset ' . $offset . ': ' . $response->get_error_message() );
+			wp_send_json_error( 'Failed to sync search index. Please check your Supabase configuration and try again.' );
 		}
 
 		wp_send_json_success(
 			array(
 				'count' => count( $post_ids ),
 				'total' => $total,
-				'more'  => count( $post_ids ) >= 50,
+				'more'  => $more,
 			)
 		);
 	}
@@ -194,10 +243,10 @@ class Search {
 	 *
 	 * @return string
 	 */
-	public static function override_search_loop( $block_content, $block ) {
+	public function override_search_loop( $block_content, $block ) {
 		if ( 'core/search' === $block['blockName'] ) {
 			$home_url      = home_url( '/' );
-			$search_slug   = get_option( 'dm_si_search_slug', 'search' );
+			$search_slug   = Options::search_slug();
 			$search_url    = home_url( "/$search_slug/" );
 			$block_content = str_replace( 'action="' . esc_url( $home_url ) . '"', 'action="' . esc_url( $search_url ) . '"', $block_content );
 			$block_content = str_replace( 'action="/"', 'action="/' . $search_slug . '/"', $block_content );
@@ -221,15 +270,18 @@ class Search {
 				$GLOBALS['wp_query']->post_count    = count( $GLOBALS['wp_query']->posts );
 				$GLOBALS['wp_query']->max_num_pages = 1;
 
-				$search_instance = self::get_instance();
-				remove_action( 'render_block', array( $search_instance, 'override_search_loop' ), 10 );
-				$query_block   = new \WP_Block( $block );
-				$template_html = $query_block->render();
-				add_action( 'render_block', array( $search_instance, 'override_search_loop' ), 10, 2 );
+				remove_action( 'render_block', array( $this, 'override_search_loop' ), 10 );
 
-				$GLOBALS['wp_query']->posts         = $saved_posts;
-				$GLOBALS['wp_query']->post_count    = $saved_post_count;
-				$GLOBALS['wp_query']->max_num_pages = $saved_max_pages;
+				try {
+					$query_block   = new \WP_Block( $block );
+					$template_html = $query_block->render();
+				} finally {
+					add_action( 'render_block', array( $this, 'override_search_loop' ), 10, 2 );
+
+					$GLOBALS['wp_query']->posts         = $saved_posts;
+					$GLOBALS['wp_query']->post_count    = $saved_post_count;
+					$GLOBALS['wp_query']->max_num_pages = $saved_max_pages;
+				}
 
 				ob_start();
 				?>

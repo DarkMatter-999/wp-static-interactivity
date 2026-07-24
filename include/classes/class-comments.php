@@ -1,6 +1,7 @@
 <?php
 /**
- * Comments class for Supabase-backed comments.
+ * Mirrors WordPress comments to/from Supabase and serves them on the front
+ * end via a <dmsi-comments> custom element instead of the WP comment loop.
  *
  * @package DM_Static_Interactivity
  */
@@ -10,7 +11,7 @@ namespace DM_Static_Interactivity;
 use DM_Static_Interactivity\Traits\Singleton;
 
 /**
- * Comments class for Supabase-backed comments.
+ * Comments class.
  *
  * @since 1.0.0
  */
@@ -22,7 +23,7 @@ class Comments {
 	 *
 	 * @return void
 	 */
-	public function __construct() {
+	private function __construct() {
 		add_action( 'render_block', array( $this, 'hijack_comments_block' ), 10, 2 );
 		add_action( 'render_block', array( $this, 'apply_parent_layout_to_wrapper' ), 20, 2 );
 		add_action( 'init', array( $this, 'schedule_cron' ) );
@@ -246,20 +247,21 @@ class Comments {
 			};
 
 			add_filter( 'comments_pre_query', $filter_callback, 10, 2 );
+			remove_action( 'render_block', array( $this, 'hijack_comments_block' ), 10 );
 
-			$self = self::get_instance();
-			remove_action( 'render_block', array( $self, 'hijack_comments_block' ), 10 );
-			$comments_block = new \WP_Block(
-				$block,
-				array(
-					'postId'   => $post_id,
-					'postType' => get_post_type(),
-				)
-			);
-			$template_html  = $comments_block->render();
-			add_action( 'render_block', array( $self, 'hijack_comments_block' ), 10, 2 );
-
-			remove_filter( 'comments_pre_query', $filter_callback );
+			try {
+				$comments_block = new \WP_Block(
+					$block,
+					array(
+						'postId'   => $post_id,
+						'postType' => get_post_type(),
+					)
+				);
+				$template_html  = $comments_block->render();
+			} finally {
+				add_action( 'render_block', array( $this, 'hijack_comments_block' ), 10, 2 );
+				remove_filter( 'comments_pre_query', $filter_callback );
+			}
 
 			ob_start();
 			?>

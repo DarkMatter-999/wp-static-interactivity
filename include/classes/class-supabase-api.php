@@ -7,16 +7,25 @@
 
 namespace DM_Static_Interactivity;
 
-use DM_Static_Interactivity\Traits\Singleton;
 use WP_Error;
 
 /**
  * Supabase API class for handling requests to Supabase.
  *
+ * A stateless static utility - there is nothing to instantiate, so this
+ * intentionally does not use the Singleton trait.
+ *
  * @since 1.0.0
  */
 class Supabase_API {
-	use Singleton;
+
+	/**
+	 * Default request timeout, in seconds. Batch pushes (e.g. syncing 50
+	 * comments/posts at once) can take longer than WP's default 5s timeout.
+	 *
+	 * @var int
+	 */
+	const REQUEST_TIMEOUT = 15;
 
 	/**
 	 * Makes a request to the Supabase API.
@@ -29,8 +38,8 @@ class Supabase_API {
 	 * @return array|WP_Error The response from the Supabase API or a WP_Error on failure.
 	 */
 	public static function request( $endpoint, $method = 'GET', $body = null, $custom_headers = array() ) {
-		$url = get_option( 'dm_si_supabase_url' );
-		$key = get_option( 'dm_si_supabase_secret_key' );
+		$url = Options::supabase_url();
+		$key = Options::supabase_secret_key();
 
 		if ( empty( $url ) || empty( $key ) ) {
 			return new WP_Error( 'supabase_config_missing', 'Supabase URL or Secret Key is missing.' );
@@ -40,6 +49,7 @@ class Supabase_API {
 
 		$args = array(
 			'method'  => $method,
+			'timeout' => self::REQUEST_TIMEOUT,
 			'headers' => array_merge(
 				array(
 					'apikey'        => $key,

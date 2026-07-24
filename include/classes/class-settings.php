@@ -22,7 +22,7 @@ class Settings {
 	 *
 	 * @return void
 	 */
-	public function __construct() {
+	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 	}
@@ -36,7 +36,7 @@ class Settings {
 		register_setting( 'dm_si_options', 'dm_si_supabase_url', 'esc_url_raw' );
 		register_setting( 'dm_si_options', 'dm_si_supabase_publishable_key', 'sanitize_text_field' );
 		register_setting( 'dm_si_options', 'dm_si_supabase_secret_key', 'sanitize_text_field' );
-		register_setting( 'dm_si_options', 'dm_si_search_slug', 'sanitize_url' );
+		register_setting( 'dm_si_options', 'dm_si_search_slug', 'sanitize_title' );
 	}
 
 	/**
@@ -70,19 +70,19 @@ class Settings {
 				<table class="form-table">
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Supabase URL', 'dm-static-interactivity' ); ?></th>
-						<td><input type="text" name="dm_si_supabase_url" value="<?php echo esc_attr( get_option( 'dm_si_supabase_url' ) ); ?>" class="regular-text" /></td>
+						<td><input type="text" name="dm_si_supabase_url" value="<?php echo esc_attr( Options::supabase_url() ); ?>" class="regular-text" /></td>
 					</tr>
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Supabase Publishable Key', 'dm-static-interactivity' ); ?></th>
-						<td><input type="password" name="dm_si_supabase_publishable_key" value="<?php echo esc_attr( get_option( 'dm_si_supabase_publishable_key' ) ); ?>" class="regular-text" /></td>
+						<td><input type="password" name="dm_si_supabase_publishable_key" value="<?php echo esc_attr( Options::supabase_publishable_key() ); ?>" class="regular-text" /></td>
 					</tr>
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Supabase Secret Key', 'dm-static-interactivity' ); ?></th>
-						<td><input type="password" name="dm_si_supabase_secret_key" value="<?php echo esc_attr( get_option( 'dm_si_supabase_secret_key' ) ); ?>" class="regular-text" /></td>
+						<td><input type="password" name="dm_si_supabase_secret_key" value="<?php echo esc_attr( Options::supabase_secret_key() ); ?>" class="regular-text" /></td>
 					</tr>
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Search Slug', 'dm-static-interactivity' ); ?></th>
-						<td><input type="text" name="dm_si_search_slug" value="<?php echo esc_attr( get_option( 'dm_si_search_slug', 'search' ) ); ?>" class="regular-text" /></td>
+						<td><input type="text" name="dm_si_search_slug" value="<?php echo esc_attr( Options::search_slug() ); ?>" class="regular-text" /></td>
 					</tr>
 				</table>
 				<?php submit_button(); ?>

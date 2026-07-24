@@ -28,6 +28,7 @@ class Search {
 		add_action( 'before_delete_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
 		add_action( 'wp_trash_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
 		add_action( 'render_block', array( $this, 'override_search_loop' ), 10, 2 );
+		add_action( 'wp_ajax_dm_si_replace_index', array( $this, 'ajax_replace_index' ) );
 	}
 
 	/**
@@ -97,6 +98,89 @@ class Search {
 		$endpoint = 'search_index?post_id=eq.' . intval( $post_id );
 
 		$response = Supabase_API::request( $endpoint, 'DELETE' );
+	}
+
+	/**
+	 * Process a batch for the replace-index AJAX action.
+	 *
+	 * @return void
+	 */
+	public static function ajax_replace_index() {
+		check_ajax_referer( 'dm_si_replace_index' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Insufficient permissions.' );
+		}
+
+		$offset = isset( $_POST['offset'] ) ? intval( $_POST['offset'] ) : 0;
+
+		if ( 0 === $offset ) {
+			Supabase_API::request( 'search_index', 'DELETE' );
+		}
+
+		$query = new \WP_Query(
+			array(
+				'post_type'      => array( 'post', 'page' ),
+				'post_status'    => 'publish',
+				'posts_per_page' => 50,
+				'offset'         => $offset,
+				'orderby'        => 'ID',
+				'order'          => 'ASC',
+				'fields'         => 'ids',
+			)
+		);
+
+		$post_ids = $query->posts;
+		$total    = (int) $query->found_posts;
+
+		if ( empty( $post_ids ) ) {
+			wp_send_json_success(
+				array(
+					'count' => 0,
+					'total' => $total,
+					'more'  => false,
+				)
+			);
+		}
+
+		$data = array();
+		foreach ( $post_ids as $post_id ) {
+			$post = get_post( $post_id );
+
+			$featured_image_url = get_the_post_thumbnail_url( $post_id, 'full' );
+			$permalink          = get_permalink( $post_id );
+			$parsed_url         = wp_parse_url( $permalink );
+			$relative_permalink = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '/';
+
+			$data[] = array(
+				'post_id'            => $post_id,
+				'title'              => $post->post_title,
+				'excerpt'            => wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : wp_trim_words( $post->post_content, apply_filters( 'excerpt_length', 55 ) ) ),
+				'featured_image_url' => $featured_image_url ? $featured_image_url : null,
+				'permalink'          => $relative_permalink,
+			);
+		}
+
+		$response = Supabase_API::request(
+			'search_index',
+			'POST',
+			$data,
+			array(
+				'Prefer' => 'resolution=merge-duplicates,return=representation',
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( $response->get_error_message() );
+		}
+
+		wp_send_json_success(
+			array(
+				'count' => count( $post_ids ),
+				'total' => $total,
+				'more'  => count( $post_ids ) >= 50,
+			)
+		);
 	}
 
 	/**

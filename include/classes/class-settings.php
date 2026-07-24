@@ -112,7 +112,17 @@ CREATE INDEX search_index_search_vector_idx ON public.search_index USING GIN (se
 ALTER TABLE public.search_index ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read-only access to search_index" ON public.search_index FOR SELECT USING (true);
 			</textarea>
+
+			<hr>
+			<h2><?php esc_html_e( 'Replace Search Index', 'dm-static-interactivity' ); ?></h2>
+			<p><?php esc_html_e( 'Delete all existing search data in Supabase and re-sync all published posts and pages.', 'dm-static-interactivity' ); ?></p>
+			<button id="dm-si-replace-btn" class="button button-secondary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'dm_si_replace_index' ) ); ?>">
+				<?php esc_html_e( 'Replace All Search Data', 'dm-static-interactivity' ); ?>
+			</button>
+			<progress id="dm-si-progress" max="100" value="0" style="width:100%;margin-top:1em;display:none"></progress>
+			<p id="dm-si-status" style="margin-top:0.5em;"></p>
 		</div>
 		<?php
 	}
 }
+

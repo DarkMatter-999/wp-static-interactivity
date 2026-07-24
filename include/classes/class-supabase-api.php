@@ -8,6 +8,7 @@
 namespace DM_Static_Interactivity;
 
 use DM_Static_Interactivity\Traits\Singleton;
+use WP_Error;
 
 /**
  * Supabase API class for handling requests to Supabase.

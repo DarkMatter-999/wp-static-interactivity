@@ -29,6 +29,7 @@ class Assets {
 	 */
 	public function __construct() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 	}
 
 	/**
@@ -81,6 +82,29 @@ class Assets {
 			SI_PLUGIN_URL . 'assets/build/js/search.js',
 			array_merge( $search_script_asset['dependencies'], array( 'dm-si-settings' ) ),
 			$search_script_asset['version'],
+			true
+		);
+	}
+
+	/**
+	 * Enqueue admin assets for the settings page.
+	 *
+	 * @param string $hook The current admin page hook.
+	 *
+	 * @return void
+	 */
+	public function enqueue_admin_assets( $hook ) {
+		if ( 'settings_page_dm_static_interactivity' !== $hook ) {
+			return;
+		}
+
+		$script_asset = include SI_PLUGIN_PATH . 'assets/build/js/admin-sync.asset.php';
+
+		wp_enqueue_script(
+			'dm-si-admin-sync',
+			SI_PLUGIN_URL . 'assets/build/js/admin-sync.js',
+			$script_asset['dependencies'],
+			$script_asset['version'],
 			true
 		);
 	}

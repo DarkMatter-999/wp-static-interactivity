@@ -84,6 +84,18 @@ class Assets {
 			$search_script_asset['version'],
 			true
 		);
+
+		if ( is_singular() && post_type_supports( get_post_type(), 'comments' ) ) {
+			$comments_script_asset = include SI_PLUGIN_PATH . 'assets/build/js/comments.asset.php';
+
+			wp_enqueue_script(
+				'comments-js',
+				SI_PLUGIN_URL . 'assets/build/js/comments.js',
+				array_merge( $comments_script_asset['dependencies'], array( 'dm-si-settings' ) ),
+				$comments_script_asset['version'],
+				true
+			);
+		}
 	}
 
 	/**

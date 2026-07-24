@@ -26,5 +26,6 @@ class Plugin {
 		Assets::get_instance();
 		Settings::get_instance();
 		Search::get_instance();
+		Comments::get_instance();
 	}
 }

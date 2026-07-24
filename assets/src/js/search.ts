@@ -29,7 +29,7 @@ class SearchIsland extends HTMLElement {
 
 		try {
 			const terms = query
-				.replace( /[^\w\s]/g, '' )
+				.replace( /[^\p{L}\p{N}\s]/gu, '' )
 				.trim()
 				.split( /\s+/ )
 				.filter( Boolean );
@@ -80,12 +80,27 @@ class SearchIsland extends HTMLElement {
 
 		const wrapper = this.template.content.cloneNode( true );
 		const root = wrapper.children[ 0 ];
+		if ( ! root ) {
+			this.resultsContainer.innerHTML =
+				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			return;
+		}
 		const postList =
 			root.querySelector( '.wp-block-post-template' ) ||
 			root.children[ 0 ];
+		if ( ! postList ) {
+			this.resultsContainer.innerHTML =
+				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			return;
+		}
 		const itemTemplate =
 			postList.querySelector( '.wp-block-post' ) ||
 			postList.children[ 0 ];
+		if ( ! itemTemplate ) {
+			this.resultsContainer.innerHTML =
+				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			return;
+		}
 		postList.innerHTML = '';
 
 		results.forEach( ( result ) => {
@@ -94,14 +109,14 @@ class SearchIsland extends HTMLElement {
 			const titleLinks = clone.querySelectorAll( 'h2 a, h3 a' );
 			titleLinks.forEach( ( a ) => {
 				a.href = result.permalink;
-				a.innerHTML = result.title;
+				a.textContent = result.title;
 			} );
 
 			const excerpts = clone.querySelectorAll(
 				'.wp-block-post-excerpt__excerpt'
 			);
 			excerpts.forEach( ( p ) => {
-				p.innerHTML = result.excerpt || '';
+				p.textContent = result.excerpt || '';
 			} );
 
 			const images = clone.querySelectorAll(

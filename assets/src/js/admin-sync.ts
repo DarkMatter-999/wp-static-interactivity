@@ -1,3 +1,5 @@
+import { __, _n, sprintf } from '@wordpress/i18n';
+
 function processChunk( offset: number ): void {
 	const btn = document.getElementById(
 		'dm-si-replace-btn'
@@ -29,8 +31,12 @@ function processChunk( offset: number ): void {
 			if ( ! json.success ) {
 				btn.disabled = false;
 				progress.value = 0;
-				status.textContent =
-					'Error: ' + ( json.data || 'Unknown error' );
+				status.textContent = sprintf(
+					/* translators: %s: error message */
+					__( 'Error: %s', 'dm-static-interactivity' ),
+					json.data ||
+						__( 'Unknown error', 'dm-static-interactivity' )
+				);
 				return;
 			}
 
@@ -43,17 +49,35 @@ function processChunk( offset: number ): void {
 			}
 
 			if ( d.more ) {
-				status.textContent = `Syncing ${ done } / ${ total }…`;
+				status.textContent = sprintf(
+					/* translators: %1$d: number of items done, %2$d: total items */
+					__( 'Syncing %1$d / %2$d…', 'dm-static-interactivity' ),
+					done,
+					total
+				);
 				processChunk( offset + d.count );
 			} else {
 				btn.disabled = false;
-				status.textContent = `Done — ${ total } posts synced.`;
+				status.textContent = sprintf(
+					/* translators: %d: number of posts synced */
+					_n(
+						'Done — %d post synced.',
+						'Done — %d posts synced.',
+						total,
+						'dm-static-interactivity'
+					),
+					total
+				);
 			}
 		} )
 		.catch( ( err ) => {
 			btn.disabled = false;
 			progress.value = 0;
-			status.textContent = 'Error: ' + err.message;
+			status.textContent = sprintf(
+				/* translators: %s: error message */
+				__( 'Error: %s', 'dm-static-interactivity' ),
+				err.message
+			);
 		} );
 }
 
@@ -76,7 +100,7 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		btn.disabled = true;
 		progress.style.display = 'block';
 		progress.value = 0;
-		status.textContent = 'Starting…';
+		status.textContent = __( 'Starting…', 'dm-static-interactivity' );
 		processChunk( 0 );
 	} );
 } );

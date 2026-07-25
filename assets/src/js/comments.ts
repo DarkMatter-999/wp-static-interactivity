@@ -1,3 +1,5 @@
+import { __, _n, sprintf } from '@wordpress/i18n';
+
 interface Comment {
 	id: number;
 	post_id: number;
@@ -37,7 +39,10 @@ class CommentsIsland extends HTMLElement {
 	}
 
 	async fetchAndRender() {
-		this.wrapper.innerHTML = '<p>Loading comments...</p>';
+		this.wrapper.innerHTML = `<p>${ __(
+			'Loading comments…',
+			'dm-static-interactivity'
+		) }</p>`;
 
 		try {
 			const endpoint = `${ this.config.supabase_url }/rest/v1/comments?post_id=eq.${ this.postId }&status=eq.approved&order=created_at.asc`;
@@ -49,13 +54,18 @@ class CommentsIsland extends HTMLElement {
 			} );
 
 			if ( ! response.ok ) {
-				throw new Error( 'Failed to fetch comments' );
+				throw new Error(
+					__( 'Failed to fetch comments', 'dm-static-interactivity' )
+				);
 			}
 
 			const comments: Comment[] = await response.json();
 			this.render( comments );
 		} catch ( error ) {
-			this.wrapper.innerHTML = '<p>Unable to load comments.</p>';
+			this.wrapper.innerHTML = `<p>${ __(
+				'Unable to load comments.',
+				'dm-static-interactivity'
+			) }</p>`;
 		}
 	}
 
@@ -71,7 +81,7 @@ class CommentsIsland extends HTMLElement {
 
 		if ( submitBtn ) {
 			( submitBtn as HTMLButtonElement ).disabled = true;
-			submitBtn.value = 'Submitting…';
+			submitBtn.value = __( 'Submitting…', 'dm-static-interactivity' );
 		}
 
 		const data = {
@@ -113,25 +123,34 @@ class CommentsIsland extends HTMLElement {
 			);
 
 			if ( ! response.ok ) {
-				throw new Error( 'Failed to submit comment' );
+				throw new Error(
+					__( 'Failed to submit comment', 'dm-static-interactivity' )
+				);
 			}
 
 			form.reset();
 			if ( msgEl ) {
-				msgEl.textContent =
-					'Your comment has been submitted and is awaiting moderation.';
+				msgEl.textContent = __(
+					'Your comment has been submitted and is awaiting moderation.',
+					'dm-static-interactivity'
+				);
 				msgEl.className = 'comment-submit-msg comment-submit-success';
 			}
 		} catch ( error ) {
 			if ( msgEl ) {
-				msgEl.textContent =
-					'Failed to submit comment. Please try again.';
+				msgEl.textContent = __(
+					'Failed to submit comment. Please try again.',
+					'dm-static-interactivity'
+				);
 				msgEl.className = 'comment-submit-msg comment-submit-error';
 			}
 		} finally {
 			if ( submitBtn ) {
 				( submitBtn as HTMLButtonElement ).disabled = false;
-				submitBtn.value = 'Post Comment';
+				submitBtn.value = __(
+					'Post Comment',
+					'dm-static-interactivity'
+				);
 			}
 		}
 	}
@@ -174,9 +193,16 @@ class CommentsIsland extends HTMLElement {
 		const countTitle = wrapper.querySelector( '.wp-block-comments-title' );
 		if ( countTitle ) {
 			const count = comments.length;
-			countTitle.textContent = `${ count } ${
-				count === 1 ? 'Comment' : 'Comments'
-			}`;
+			countTitle.textContent = sprintf(
+				/* translators: %d: number of comments */
+				_n(
+					'%d Comment',
+					'%d Comments',
+					count,
+					'dm-static-interactivity'
+				),
+				count
+			);
 		}
 
 		if ( commentList ) {

@@ -1,3 +1,5 @@
+import { __ } from '@wordpress/i18n';
+
 class SearchIsland extends HTMLElement {
 	constructor() {
 		super();
@@ -10,8 +12,10 @@ class SearchIsland extends HTMLElement {
 
 	async connectedCallback() {
 		if ( ! this.config.supabase_url || ! this.config.supabase_anon_key ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>Search is not configured.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'Search is not configured.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 			return;
 		}
 
@@ -19,13 +23,17 @@ class SearchIsland extends HTMLElement {
 		const query = urlParams.get( 's' ) || urlParams.get( 'q' );
 
 		if ( ! query ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>Please enter a search term.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'Please enter a search term.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 			return;
 		}
 
-		this.resultsContainer.innerHTML =
-			'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>Searching...</p></div>';
+		this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+			'Searching…',
+			'dm-static-interactivity'
+		) }</p></div>`;
 
 		try {
 			const terms = query
@@ -58,14 +66,18 @@ class SearchIsland extends HTMLElement {
 			} );
 
 			if ( ! response.ok ) {
-				throw new Error( 'Search failed' );
+				throw new Error(
+					__( 'Search failed', 'dm-static-interactivity' )
+				);
 			}
 
 			const results = await response.json();
 			this.renderResults( results );
 		} catch ( error ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'An error occurred while searching.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 		}
 	}
 
@@ -73,32 +85,40 @@ class SearchIsland extends HTMLElement {
 		this.resultsContainer.innerHTML = '';
 
 		if ( results.length === 0 ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>No results found.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'No results found.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 			return;
 		}
 
 		const wrapper = this.template.content.cloneNode( true );
 		const root = wrapper.children[ 0 ];
 		if ( ! root ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'An error occurred while searching.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 			return;
 		}
 		const postList =
 			root.querySelector( '.wp-block-post-template' ) ||
 			root.children[ 0 ];
 		if ( ! postList ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'An error occurred while searching.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 			return;
 		}
 		const itemTemplate =
 			postList.querySelector( '.wp-block-post' ) ||
 			postList.children[ 0 ];
 		if ( ! itemTemplate ) {
-			this.resultsContainer.innerHTML =
-				'<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>An error occurred while searching.</p></div>';
+			this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+				'An error occurred while searching.',
+				'dm-static-interactivity'
+			) }</p></div>`;
 			return;
 		}
 		postList.innerHTML = '';

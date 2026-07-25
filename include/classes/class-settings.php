@@ -25,6 +25,8 @@ class Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'wp_ajax_dm_si_test_connection', array( $this, 'ajax_test_connection' ) );
+		add_action( 'wp_ajax_dm_si_health_check', array( $this, 'ajax_health_check' ) );
 	}
 
 	/**
@@ -51,6 +53,169 @@ class Settings {
 			'manage_options',
 			'dm_static_interactivity',
 			array( $this, 'render_settings_page' )
+		);
+	}
+
+	/**
+	 * Test the Supabase connection.
+	 *
+	 * @return void
+	 */
+	public function ajax_test_connection() {
+		check_ajax_referer( 'dm_si_test_connection' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Insufficient permissions.' );
+		}
+
+		$url = Options::supabase_url();
+		$key = Options::supabase_secret_key();
+
+		if ( empty( $url ) || empty( $key ) ) {
+			wp_send_json_error( 'Supabase URL or Secret Key is not configured.' );
+		}
+
+		$response = wp_remote_get(
+			trailingslashit( $url ) . 'rest/v1/',
+			array(
+				'headers' => array(
+					'apikey'        => $key,
+					'Authorization' => 'Bearer ' . $key,
+				),
+				'timeout' => 10,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( 'Network error: ' . $response->get_error_message() );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+
+		if ( $code >= 200 && $code < 300 ) {
+			$message = '';
+
+			$tables          = $this->check_supabase_tables();
+			$search_exists   = $tables['search_index'];
+			$comments_exists = $tables['comments'];
+
+			if ( ! $search_exists && ! $comments_exists ) {
+				$message = __( 'Connected, but required tables (search_index, comments) were not found. Please run the schema setup.', 'dm-static-interactivity' );
+			} elseif ( ! $search_exists ) {
+				$message = __( 'Connected, but the search_index table was not found.', 'dm-static-interactivity' );
+			} elseif ( ! $comments_exists ) {
+				$message = __( 'Connected, but the comments table was not found.', 'dm-static-interactivity' );
+			} else {
+				$message = __( 'All required tables exist.', 'dm-static-interactivity' );
+			}
+
+			wp_send_json_success(
+				array(
+					'message'      => $message,
+					'search_index' => $search_exists,
+					'comments'     => $comments_exists,
+				)
+			);
+		} elseif ( 401 === $code || 403 === $code ) {
+			wp_send_json_error( 'Authentication failed. Check your Supabase URL and keys.' );
+		} else {
+			wp_send_json_error( 'Unexpected response (HTTP ' . $code . ').' );
+		}
+	}
+
+	/**
+	 * Check if required Supabase tables exist.
+	 *
+	 * @return array
+	 */
+	private function check_supabase_tables() {
+		$url    = Options::supabase_url();
+		$key    = Options::supabase_secret_key();
+		$result = array(
+			'search_index' => false,
+			'comments'     => false,
+		);
+
+		foreach ( array_keys( $result ) as $table ) {
+			$response = wp_remote_get(
+				trailingslashit( $url ) . 'rest/v1/' . rawurlencode( $table ) . '?limit=1',
+				array(
+					'headers' => array(
+						'apikey'        => $key,
+						'Authorization' => 'Bearer ' . $key,
+					),
+					'timeout' => 10,
+				)
+			);
+
+			if ( ! is_wp_error( $response ) ) {
+				$code = wp_remote_retrieve_response_code( $response );
+				if ( $code >= 200 && $code < 300 ) {
+					$result[ $table ] = true;
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Compare WordPress post count with Supabase search index row count.
+	 *
+	 * @return void
+	 */
+	public function ajax_health_check() {
+		check_ajax_referer( 'dm_si_health_check' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Insufficient permissions.' );
+		}
+
+		$sync_post_types = array( 'post', 'page' );
+
+		$wp_count = (int) wp_count_posts( 'post' )->publish + (int) wp_count_posts( 'page' )->publish;
+
+		$url = Options::supabase_url();
+		$key = Options::supabase_secret_key();
+
+		if ( empty( $url ) || empty( $key ) ) {
+			wp_send_json_error( 'Supabase is not configured.' );
+		}
+
+		$response = wp_remote_get(
+			trailingslashit( $url ) . 'rest/v1/search_index?select=post_id&limit=0',
+			array(
+				'headers' => array(
+					'apikey'        => $key,
+					'Authorization' => 'Bearer ' . $key,
+					'Prefer'        => 'count=exact',
+				),
+				'timeout' => 10,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( 'Supabase request failed: ' . $response->get_error_message() );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+
+		if ( $code >= 400 ) {
+			wp_send_json_error( 'Supabase returned HTTP ' . $code );
+		}
+
+		$sb_count      = 0;
+		$content_range = wp_remote_retrieve_header( $response, 'content-range' );
+		if ( $content_range && preg_match( '/\/(\d+)$/', $content_range, $m ) ) {
+			$sb_count = (int) $m[1];
+		}
+
+		wp_send_json_success(
+			array(
+				'wp_count'       => $wp_count,
+				'supabase_count' => $sb_count,
+				'difference'     => $wp_count - $sb_count,
+			)
 		);
 	}
 
@@ -144,6 +309,23 @@ GRANT SELECT, INSERT ON public.comments TO anon;
 			</button>
 			<progress id="dm-si-progress" max="100" value="0" style="width:100%;margin-top:1em;display:none"></progress>
 			<p id="dm-si-status" style="margin-top:0.5em;"></p>
+
+			<hr>
+			<h2><?php esc_html_e( 'Connection Test', 'dm-static-interactivity' ); ?></h2>
+			<p><?php esc_html_e( 'Verify that your Supabase project is reachable and the required tables exist.', 'dm-static-interactivity' ); ?></p>
+			<button id="dm-si-test-connection-btn" class="button button-secondary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'dm_si_test_connection' ) ); ?>">
+				<?php esc_html_e( 'Test Connection', 'dm-static-interactivity' ); ?>
+			</button>
+			<p id="dm-si-connection-status" style="margin-top:0.5em;"></p>
+
+			<hr>
+			<h2><?php esc_html_e( 'Search Index Health Check', 'dm-static-interactivity' ); ?></h2>
+			<p><?php esc_html_e( 'Compare the number of published posts in WordPress against the Supabase search index to find discrepancies.', 'dm-static-interactivity' ); ?></p>
+			<button id="dm-si-health-check-btn" class="button button-secondary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'dm_si_health_check' ) ); ?>">
+				<?php esc_html_e( 'Check Health', 'dm-static-interactivity' ); ?>
+			</button>
+			<progress id="dm-si-health-progress" max="100" value="0" style="width:100%;margin-top:1em;display:none"></progress>
+			<p id="dm-si-health-status" style="margin-top:0.5em;"></p>
 
 			<hr>
 			<h2><?php esc_html_e( 'Sync Comments', 'dm-static-interactivity' ); ?></h2>
@@ -246,4 +428,3 @@ GRANT SELECT, INSERT ON public.comments TO anon;
 		<?php
 	}
 }
-

@@ -168,7 +168,18 @@ class Search {
 				wp_send_json_error( 'A search index rebuild is already in progress. Please wait for it to finish.' );
 			}
 			set_transient( 'dm_si_replace_index_lock', true, 5 * MINUTE_IN_SECONDS );
-			Supabase_API::request( 'search_index', 'DELETE' );
+
+			$delete_result = Supabase_API::request(
+				'search_index?post_id=gte.0',
+				'DELETE'
+			);
+
+			if ( is_wp_error( $delete_result ) ) {
+				delete_transient( 'dm_si_replace_index_lock' );
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional: surface sync failures in background context.
+				error_log( '[DM Static Interactivity] Failed to clear search index: ' . $delete_result->get_error_message() );
+				wp_send_json_error( 'Failed to clear existing search index. Please check your Supabase configuration and try again.' );
+			}
 		}
 
 		$query = new \WP_Query(

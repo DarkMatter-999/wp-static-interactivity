@@ -48,6 +48,7 @@ class Assets {
 					'search_slug'       => $search_slug,
 					'supabase_url'      => untrailingslashit( $supabase_url ),
 					'supabase_anon_key' => $supabase_key,
+					'per_page'          => absint( get_option( 'posts_per_page', 10 ) ),
 				)
 			) . ';',
 			'before'

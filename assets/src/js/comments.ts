@@ -15,6 +15,13 @@ class CommentsIsland extends HTMLElement {
 	private template: HTMLTemplateElement | null;
 	private wrapper: HTMLElement;
 	private config: any;
+	private commentList: HTMLElement | null = null;
+	private itemTemplate: HTMLElement | null = null;
+	private page = 0;
+	private perPage: number;
+	private totalComments = 0;
+	private isLoadingMore = false;
+	private loadMoreBtn: HTMLButtonElement | null = null;
 
 	constructor() {
 		super();
@@ -24,6 +31,7 @@ class CommentsIsland extends HTMLElement {
 			'.supabase-comments-wrapper'
 		) as HTMLElement;
 		this.config = ( window as any ).dmSISettings || {};
+		this.perPage = parseInt( this.config.per_page, 10 ) || 10;
 	}
 
 	async connectedCallback() {
@@ -45,11 +53,17 @@ class CommentsIsland extends HTMLElement {
 		) }</p>`;
 
 		try {
+			const start = this.page * this.perPage;
+			const end = start + this.perPage - 1;
+
 			const endpoint = `${ this.config.supabase_url }/rest/v1/comments?post_id=eq.${ this.postId }&status=eq.approved&order=created_at.asc`;
 			const response = await fetch( endpoint, {
 				headers: {
 					apikey: this.config.supabase_anon_key,
 					Authorization: `Bearer ${ this.config.supabase_anon_key }`,
+					'Range-Unit': 'items',
+					Range: `${ start }-${ end }`,
+					Prefer: 'count=exact',
 				},
 			} );
 
@@ -59,13 +73,177 @@ class CommentsIsland extends HTMLElement {
 				);
 			}
 
+			const contentRange = response.headers.get( 'Content-Range' );
+			if ( contentRange ) {
+				const match = contentRange.match( /\/(\d+)$/ );
+				if ( match ) {
+					this.totalComments = parseInt( match[ 1 ], 10 );
+				}
+			}
+
 			const comments: Comment[] = await response.json();
-			this.render( comments );
+			await this.render( comments, true );
 		} catch ( error ) {
 			this.wrapper.innerHTML = `<p>${ __(
 				'Unable to load comments.',
 				'dm-static-interactivity'
 			) }</p>`;
+		}
+	}
+
+	async loadMore() {
+		if ( this.isLoadingMore ) {
+			return;
+		}
+		this.isLoadingMore = true;
+
+		if ( this.loadMoreBtn ) {
+			this.loadMoreBtn.disabled = true;
+			this.loadMoreBtn.textContent = __(
+				'Loading…',
+				'dm-static-interactivity'
+			);
+		}
+
+		this.page++;
+
+		try {
+			const start = this.page * this.perPage;
+			const end = start + this.perPage - 1;
+
+			const endpoint = `${ this.config.supabase_url }/rest/v1/comments?post_id=eq.${ this.postId }&status=eq.approved&order=created_at.asc`;
+			const response = await fetch( endpoint, {
+				headers: {
+					apikey: this.config.supabase_anon_key,
+					Authorization: `Bearer ${ this.config.supabase_anon_key }`,
+					'Range-Unit': 'items',
+					Range: `${ start }-${ end }`,
+					Prefer: 'count=exact',
+				},
+			} );
+
+			if ( ! response.ok ) {
+				throw new Error(
+					__( 'Failed to fetch comments', 'dm-static-interactivity' )
+				);
+			}
+
+			const contentRange = response.headers.get( 'Content-Range' );
+			if ( contentRange ) {
+				const match = contentRange.match( /\/(\d+)$/ );
+				if ( match ) {
+					this.totalComments = parseInt( match[ 1 ], 10 );
+				}
+			}
+
+			const comments: Comment[] = await response.json();
+			this.appendComments( comments );
+		} catch ( error ) {
+			this.page--;
+		} finally {
+			this.isLoadingMore = false;
+		}
+	}
+
+	private appendComments( comments: Comment[] ) {
+		if ( ! this.commentList || ! this.itemTemplate ) {
+			return;
+		}
+
+		for ( const comment of comments ) {
+			const clone = this.createCommentElement( comment );
+			this.commentList.appendChild( clone );
+		}
+
+		this.updateLoadMoreButton();
+	}
+
+	private async createCommentElement(
+		comment: Comment
+	): Promise< HTMLElement > {
+		const clone = this.itemTemplate.cloneNode( true ) as HTMLElement;
+
+		const avatar = clone.querySelector( '.wp-block-avatar img' );
+		if ( avatar ) {
+			const emailHash = await this.hashEmail( comment.author_email );
+			(
+				avatar as HTMLImageElement
+			 ).src = `https://www.gravatar.com/avatar/${ emailHash }?d=mp&s=50&r=g`;
+			( avatar as HTMLImageElement ).srcset = '';
+			( avatar as HTMLImageElement ).alt = comment.author_name;
+		}
+
+		const authorName = clone.querySelector(
+			'.wp-block-comment-author-name'
+		);
+		if ( authorName ) {
+			authorName.textContent = comment.author_name;
+		}
+
+		const dateEl = clone.querySelector( '.wp-block-comment-date time' );
+		if ( dateEl ) {
+			const date = new Date( comment.created_at );
+			const dateStr = date.toLocaleDateString( undefined, {
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric',
+			} );
+			dateEl.setAttribute( 'datetime', date.toISOString() );
+			dateEl.textContent = dateStr;
+		}
+
+		const contentEl = clone.querySelector( '.wp-block-comment-content' );
+		if ( contentEl ) {
+			contentEl.innerHTML = `<p>${ this.escapeHTML(
+				comment.content
+			).replace( /\n/g, '<br>' ) }</p>`;
+		}
+
+		const editLinks = clone.querySelectorAll(
+			'.wp-block-comment-edit-link, .wp-block-comment-reply-link'
+		);
+		editLinks.forEach(
+			( el ) => ( ( el as HTMLElement ).style.display = 'none' )
+		);
+
+		return clone;
+	}
+
+	private updateCommentsCount() {
+		const countTitle = this.wrapper.querySelector(
+			'.wp-block-comments-title'
+		);
+		if ( countTitle ) {
+			countTitle.textContent = sprintf(
+				/* translators: %d: number of comments */
+				_n(
+					'%d Comment',
+					'%d Comments',
+					this.totalComments,
+					'dm-static-interactivity'
+				),
+				this.totalComments
+			);
+		}
+	}
+
+	private updateLoadMoreButton() {
+		const shown = ( this.page + 1 ) * this.perPage;
+		if ( shown >= this.totalComments ) {
+			if ( this.loadMoreBtn ) {
+				this.loadMoreBtn.remove();
+				this.loadMoreBtn = null;
+			}
+			return;
+		}
+
+		if ( this.loadMoreBtn ) {
+			this.loadMoreBtn.disabled = false;
+			this.loadMoreBtn.textContent = sprintf(
+				/* translators: %d: remaining comment count */
+				__( 'Load more (%d)', 'dm-static-interactivity' ),
+				this.totalComments - shown
+			);
 		}
 	}
 
@@ -190,18 +368,20 @@ class CommentsIsland extends HTMLElement {
 		) as HTMLElement;
 		const itemTemplate = commentList?.children[ 0 ] as HTMLElement;
 
+		this.commentList = commentList;
+		this.itemTemplate = itemTemplate;
+
 		const countTitle = wrapper.querySelector( '.wp-block-comments-title' );
 		if ( countTitle ) {
-			const count = comments.length;
 			countTitle.textContent = sprintf(
 				/* translators: %d: number of comments */
 				_n(
 					'%d Comment',
 					'%d Comments',
-					count,
+					this.totalComments,
 					'dm-static-interactivity'
 				),
-				count
+				this.totalComments
 			);
 		}
 
@@ -210,61 +390,7 @@ class CommentsIsland extends HTMLElement {
 
 			if ( comments.length > 0 && itemTemplate ) {
 				for ( const comment of comments ) {
-					const clone = itemTemplate.cloneNode( true ) as HTMLElement;
-
-					const avatar = clone.querySelector(
-						'.wp-block-avatar img'
-					);
-					if ( avatar ) {
-						const emailHash = await this.hashEmail(
-							comment.author_email
-						);
-						(
-							avatar as HTMLImageElement
-						 ).src = `https://www.gravatar.com/avatar/${ emailHash }?d=mp&s=50&r=g`;
-						( avatar as HTMLImageElement ).srcset = '';
-						( avatar as HTMLImageElement ).alt =
-							comment.author_name;
-					}
-
-					const authorName = clone.querySelector(
-						'.wp-block-comment-author-name'
-					);
-					if ( authorName ) {
-						authorName.textContent = comment.author_name;
-					}
-
-					const dateEl = clone.querySelector(
-						'.wp-block-comment-date time'
-					);
-					if ( dateEl ) {
-						const date = new Date( comment.created_at );
-						const dateStr = date.toLocaleDateString( undefined, {
-							year: 'numeric',
-							month: 'long',
-							day: 'numeric',
-						} );
-						dateEl.setAttribute( 'datetime', date.toISOString() );
-						dateEl.textContent = dateStr;
-					}
-
-					const contentEl = clone.querySelector(
-						'.wp-block-comment-content'
-					);
-					if ( contentEl ) {
-						contentEl.innerHTML = `<p>${ this.escapeHTML(
-							comment.content
-						).replace( /\n/g, '<br>' ) }</p>`;
-					}
-
-					const editLinks = clone.querySelectorAll(
-						'.wp-block-comment-edit-link, .wp-block-comment-reply-link'
-					);
-					editLinks.forEach(
-						( el ) =>
-							( ( el as HTMLElement ).style.display = 'none' )
-					);
-
+					const clone = await this.createCommentElement( comment );
 					commentList.appendChild( clone );
 				}
 			}
@@ -278,6 +404,8 @@ class CommentsIsland extends HTMLElement {
 		this.wrapper.innerHTML = '';
 		this.wrapper.appendChild( wrapper );
 
+		this.renderLoadMoreButton();
+
 		const form = this.wrapper.querySelector(
 			'#respond form, .comment-form'
 		);
@@ -290,6 +418,29 @@ class CommentsIsland extends HTMLElement {
 
 			form.addEventListener( 'submit', this.submitComment.bind( this ) );
 		}
+	}
+
+	private renderLoadMoreButton() {
+		const shown = ( this.page + 1 ) * this.perPage;
+		if ( shown >= this.totalComments ) {
+			return;
+		}
+
+		this.loadMoreBtn = document.createElement( 'button' );
+		this.loadMoreBtn.textContent = sprintf(
+			/* translators: %d: remaining comment count */
+			__( 'Load more (%d)', 'dm-static-interactivity' ),
+			this.totalComments - shown
+		);
+		this.loadMoreBtn.className = 'wp-element-button';
+		this.loadMoreBtn.style.cssText = 'display:block;margin:1rem auto 0';
+
+		this.loadMoreBtn.addEventListener(
+			'click',
+			this.loadMore.bind( this )
+		);
+
+		this.wrapper.appendChild( this.loadMoreBtn );
 	}
 }
 

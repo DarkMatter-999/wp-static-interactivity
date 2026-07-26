@@ -278,8 +278,8 @@ CREATE TABLE public.search_index (
 	featured_image_url TEXT,
 	permalink TEXT,
 	search_vector tsvector GENERATED ALWAYS AS (
-		setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
-		setweight(to_tsvector('english', coalesce(excerpt, '')), 'B')
+		setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
+		setweight(to_tsvector('simple', coalesce(excerpt, '')), 'B')
 	) STORED
 );
 

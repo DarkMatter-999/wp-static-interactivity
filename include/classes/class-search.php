@@ -69,6 +69,7 @@ class Search {
 		$query->is_singular = false;
 		$query->set( 'pagename', null );
 		$query->set( 'page_id', null );
+		$query->set( 's', $s );
 	}
 
 	/**
@@ -100,9 +101,13 @@ class Search {
 		}
 
 		global $wp_query;
+
+		$search_query = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- this is a public search query, not a sensitive action.
+
 		$wp_query->is_search   = true;
 		$wp_query->is_page     = false;
 		$wp_query->is_singular = false;
+		$wp_query->set( 's', $search_query );
 
 		return get_search_template();
 	}
@@ -339,10 +344,23 @@ class Search {
 				$saved_post_count = $GLOBALS['wp_query']->post_count;
 				$saved_max_pages  = $GLOBALS['wp_query']->max_num_pages;
 
-				$template_posts = array_slice( $saved_posts, 0, 1 );
-				if ( empty( $template_posts ) ) {
-					$template_posts = array( self::get_dummy_post() );
+				$template_post    = self::get_dummy_post();
+				$posts_with_thumb = get_posts(
+					array(
+						'post_type'      => self::SYNCED_POST_TYPES,
+						'post_status'    => 'publish',
+						'posts_per_page' => 1,
+						'meta_key'       => '_thumbnail_id', //phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- intentional: only need one post with a thumbnail to use as a template.
+						'fields'         => 'ids',
+					)
+				);
+				if ( ! empty( $posts_with_thumb ) ) {
+					$real_post = get_post( reset( $posts_with_thumb ) );
+					if ( $real_post ) {
+						$template_post = $real_post;
+					}
 				}
+				$template_posts = array( $template_post );
 
 				$GLOBALS['wp_query']->posts         = $template_posts;
 				$GLOBALS['wp_query']->post_count    = count( $GLOBALS['wp_query']->posts );

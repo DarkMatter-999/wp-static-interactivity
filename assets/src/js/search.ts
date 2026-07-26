@@ -48,6 +48,19 @@ class SearchIsland extends HTMLElement {
 			return;
 		}
 
+		const searchInput = document.querySelector< HTMLInputElement >( 'input[name="s"]' );
+		if ( searchInput ) {
+			searchInput.value = query;
+		}
+
+		const queryTitle = document.querySelector( '.wp-block-query-title' );
+		if ( queryTitle ) {
+			queryTitle.textContent = sprintf(
+				__( 'Search results for: "%s"', 'dm-static-interactivity' ),
+				query
+			);
+		}
+
 		this.currentQuery = query;
 		this.currentTerms = query
 			.replace( /[^\p{L}\p{N}\s]/gu, '' )
@@ -75,13 +88,13 @@ class SearchIsland extends HTMLElement {
 					.join( ' & ' );
 				endpoint = `${
 					this.config.supabase_url
-				}/rest/v1/search_index?select=*&search_vector=fts(english).${ encodeURIComponent(
+				}/rest/v1/search_index?select=*&search_vector=fts(simple).${ encodeURIComponent(
 					ftsQuery
 				) }`;
 			} else {
 				endpoint = `${
 					this.config.supabase_url
-				}/rest/v1/search_index?select=*&search_vector=wfts(english).${ encodeURIComponent(
+				}/rest/v1/search_index?select=*&search_vector=wfts(simple).${ encodeURIComponent(
 					this.currentQuery
 				) }`;
 			}
@@ -217,6 +230,8 @@ class SearchIsland extends HTMLElement {
 					if ( img ) {
 						img.src = result.featured_image_url;
 						img.srcset = '';
+						img.style.display = '';
+						figure.style.display = '';
 					}
 				} else {
 					figure.remove();

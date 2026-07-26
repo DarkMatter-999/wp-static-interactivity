@@ -73,7 +73,7 @@ class Assets {
 			true
 		);
 
-		if ( is_search() ) {
+		if ( is_search() || Search::is_search_page() ) {
 			$search_script_asset = include SI_PLUGIN_PATH . 'assets/build/js/search.asset.php';
 
 			wp_enqueue_script(

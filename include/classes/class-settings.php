@@ -248,7 +248,10 @@ class Settings {
 					</tr>
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Search Slug', 'dm-static-interactivity' ); ?></th>
-						<td><input type="text" name="dm_si_search_slug" value="<?php echo esc_attr( Options::search_slug() ); ?>" class="regular-text" /></td>
+						<td>
+							<input type="text" name="dm_si_search_slug" value="<?php echo esc_attr( Options::search_slug() ); ?>" class="regular-text" />
+							<p class="description" style="margin-top:4px"><?php esc_html_e( 'A page with this slug must exist in WordPress (an empty page is fine). The plugin will load the search template on that page instead of its page template.', 'dm-static-interactivity' ); ?></p>
+						</td>
 					</tr>
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Search Suggestions', 'dm-static-interactivity' ); ?></th>

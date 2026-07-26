@@ -31,24 +31,49 @@ class Search {
 	 * @return void
 	 */
 	private function __construct() {
-		add_action( 'init', array( $this, 'add_search_rewrite_rule' ) );
 		add_action( 'save_post', array( $this, 'schedule_post_sync' ), 10, 2 );
 		add_action( 'dm_si_sync_post_to_supabase', array( $this, 'sync_post_to_supabase' ) );
 		add_action( 'before_delete_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
 		add_action( 'wp_trash_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
 		add_action( 'render_block', array( $this, 'override_search_loop' ), 10, 2 );
 		add_action( 'wp_ajax_dm_si_replace_index', array( $this, 'ajax_replace_index' ) );
+		add_filter( 'template_include', array( $this, 'load_search_template' ) );
 	}
 
 	/**
-	 * Add the search rewrite rule. Map /search/ to an empty search query so WordPress loads the search template.
-	 * If a user visits /search/?s=hello, WordPress merges it to index.php?s=&s=hello (which is s=hello)
+	 * Check if the current page is the designated search page.
 	 *
-	 * @return void
+	 * @return bool
 	 */
-	public function add_search_rewrite_rule() {
+	public static function is_search_page() {
 		$search_slug = Options::search_slug();
-		add_rewrite_rule( '^' . $search_slug . '/?$', 'index.php?s=', 'top' );
+		if ( ! $search_slug || ! is_page() ) {
+			return false;
+		}
+		$page = get_queried_object();
+		return $page instanceof \WP_Post && $page->post_name === $search_slug;
+	}
+
+	/**
+	 * Override the template for the search page.
+	 *
+	 * Loads the theme's search template instead of the page template.
+	 *
+	 * @param string $template The path to the template file.
+	 *
+	 * @return string
+	 */
+	public function load_search_template( $template ) {
+		if ( ! self::is_search_page() ) {
+			return $template;
+		}
+
+		global $wp_query;
+		$wp_query->is_search   = true;
+		$wp_query->is_page     = false;
+		$wp_query->is_singular = false;
+
+		return get_search_template();
 	}
 
 	/**
@@ -269,7 +294,7 @@ class Search {
 			$block_content = str_replace( 'action="/"', 'action="/' . $search_slug . '/"', $block_content );
 		}
 
-		if ( 'core/query' === $block['blockName'] && is_search() ) {
+		if ( 'core/query' === $block['blockName'] && ( is_search() || self::is_search_page() ) ) {
 
 			$is_main_query = false;
 			if ( isset( $block['attrs']['query']['inherit'] ) && $block['attrs']['query']['inherit'] ) {

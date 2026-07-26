@@ -140,11 +140,17 @@ class Search {
 		$parsed_url         = wp_parse_url( $permalink );
 		$relative_permalink = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '/';
 
+		$relative_featured_image_url = null;
+		if ( $featured_image_url ) {
+			$parsed_featured             = wp_parse_url( $featured_image_url );
+			$relative_featured_image_url = isset( $parsed_featured['path'] ) ? $parsed_featured['path'] : $featured_image_url;
+		}
+
 		return array(
 			'post_id'            => $post->ID,
 			'title'              => $post->post_title,
 			'excerpt'            => wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : wp_trim_words( $post->post_content, apply_filters( 'excerpt_length', 55 ) ) ),
-			'featured_image_url' => $featured_image_url ? $featured_image_url : null,
+			'featured_image_url' => $relative_featured_image_url,
 			'permalink'          => $relative_permalink,
 		);
 	}

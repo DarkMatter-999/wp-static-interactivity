@@ -285,7 +285,7 @@ class Search {
 
 				$template_posts = array_slice( $saved_posts, 0, 1 );
 				if ( empty( $template_posts ) ) {
-					$template_posts = array( $this->get_dummy_post() );
+					$template_posts = array( self::get_dummy_post() );
 				}
 
 				$GLOBALS['wp_query']->posts         = $template_posts;

@@ -233,6 +233,15 @@ class Comments {
 				);
 			}
 
+			$template_comments = array_values(
+				array_filter(
+					$template_comments,
+					function ( $c ) {
+						return null !== get_post( $c->comment_post_ID );
+					}
+				)
+			);
+
 			$filter_callback = function ( $preempt, $query ) use ( $template_comments, $post_id ) {
 				$query_post_id = $query->query_vars['post_id'];
 

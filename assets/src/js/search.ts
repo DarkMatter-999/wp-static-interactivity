@@ -208,15 +208,18 @@ class SearchIsland extends HTMLElement {
 				p.textContent = result.excerpt || '';
 			} );
 
-			const images = clone.querySelectorAll(
-				'.wp-block-post-featured-image img'
+			const figures = clone.querySelectorAll(
+				'.wp-block-post-featured-image'
 			);
-			images.forEach( ( img ) => {
+			figures.forEach( ( figure ) => {
 				if ( result.featured_image_url ) {
-					( img as HTMLImageElement ).src = result.featured_image_url;
-					( img as HTMLImageElement ).srcset = '';
+					const img = figure.querySelector( 'img' );
+					if ( img ) {
+						img.src = result.featured_image_url;
+						img.srcset = '';
+					}
 				} else {
-					img.style.display = 'none';
+					figure.remove();
 				}
 			} );
 

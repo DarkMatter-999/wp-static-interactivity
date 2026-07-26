@@ -19,6 +19,14 @@ class Comments {
 	use Singleton;
 
 	/**
+	 * Collected comment template HTML, output in wp_footer so it
+	 * bypasses the_content / render_block entity encoding.
+	 *
+	 * @var string
+	 */
+	private static $template = '';
+
+	/**
 	 * Constructor for the Comments class.
 	 *
 	 * @return void
@@ -26,6 +34,7 @@ class Comments {
 	private function __construct() {
 		add_action( 'render_block', array( $this, 'hijack_comments_block' ), 10, 2 );
 		add_action( 'render_block', array( $this, 'apply_parent_layout_to_wrapper' ), 20, 2 );
+		add_action( 'wp_footer', array( $this, 'output_template_data' ) );
 		add_action( 'init', array( $this, 'schedule_cron' ) );
 		add_action( 'dm_si_sync_comments', array( $this, 'sync_comments_from_supabase' ) );
 		add_action( 'wp_set_comment_status', array( $this, 'push_comment_status_update' ), 10, 2 );
@@ -216,6 +225,10 @@ class Comments {
 				return $block_content;
 			}
 
+			if ( ! comments_open( $post_id ) ) {
+				return $block_content;
+			}
+
 			$template_comments = get_comments(
 				array(
 					'post_id' => $post_id,
@@ -272,12 +285,11 @@ class Comments {
 				remove_filter( 'comments_pre_query', $filter_callback );
 			}
 
+			self::$template = $template_html;
+
 			ob_start();
 			?>
 			<dmsi-comments post-id="<?php echo esc_attr( $post_id ); ?>">
-				<template>
-					<?php echo $template_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML rendered by WP_Block::render() which escapes its own output. ?>
-				</template>
 				<div class="supabase-comments-wrapper is-layout-constrained">
 					<p>Loading comments...</p>
 				</div>
@@ -287,6 +299,28 @@ class Comments {
 		}
 
 		return $block_content;
+	}
+
+	/**
+	 * Output collected comment templates as JSON in wp_footer,
+	 * after all content processing (the_content, render_block, etc.)
+	 * is complete, so the raw HTML is never corrupted by encoders.
+	 */
+	public function output_template_data() {
+		if ( ! self::$template ) {
+			return;
+		}
+
+		$json = json_encode( // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode --  avoid the wp_json_encode filter that can strip hex flags
+			self::$template,
+			JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+		);
+
+		if ( ! $json ) {
+			return;
+		}
+
+		echo '<script>window.dmSiCommentTemplate=' . $json . "</script>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded with HTML-safe hex escapes.
 	}
 
 	/**

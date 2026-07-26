@@ -12,7 +12,6 @@ interface Comment {
 
 class CommentsIsland extends HTMLElement {
 	private postId: string;
-	private template: HTMLTemplateElement | null;
 	private wrapper: HTMLElement;
 	private config: any;
 	private commentList: HTMLElement | null = null;
@@ -23,10 +22,13 @@ class CommentsIsland extends HTMLElement {
 	private isLoadingMore = false;
 	private loadMoreBtn: HTMLButtonElement | null = null;
 
+	private dmSiCommentTemplate(): string {
+		return ( window as any ).dmSiCommentTemplate || '';
+	}
+
 	constructor() {
 		super();
 		this.postId = this.getAttribute( 'post-id' ) || '';
-		this.template = this.querySelector( 'template' );
 		this.wrapper = this.querySelector(
 			'.supabase-comments-wrapper'
 		) as HTMLElement;
@@ -356,13 +358,17 @@ class CommentsIsland extends HTMLElement {
 	}
 
 	async render( comments: Comment[] ) {
-		if ( ! this.template ) {
+		const html = this.dmSiCommentTemplate();
+		if ( ! html ) {
 			return;
 		}
 
-		const wrapper = this.template.content.cloneNode(
-			true
-		) as DocumentFragment;
+		const wrapper = document.createDocumentFragment();
+		const div = document.createElement( 'div' );
+		div.innerHTML = html;
+		while ( div.firstChild ) {
+			wrapper.appendChild( div.firstChild );
+		}
 		const commentList = wrapper.querySelector(
 			'.wp-block-comment-template'
 		) as HTMLElement;

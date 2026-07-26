@@ -85,7 +85,8 @@ class Assets {
 			);
 		}
 
-		if ( is_singular() && post_type_supports( get_post_type(), 'comments' ) ) {
+		$post_id = get_the_ID();
+		if ( is_singular() && post_type_supports( get_post_type(), 'comments' ) && comments_open( $post_id ) ) {
 			$comments_script_asset = include SI_PLUGIN_PATH . 'assets/build/js/comments.asset.php';
 
 			wp_enqueue_script(

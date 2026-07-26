@@ -48,7 +48,8 @@ class SearchIsland extends HTMLElement {
 			return;
 		}
 
-		const searchInput = document.querySelector< HTMLInputElement >( 'input[name="s"]' );
+		const searchInput =
+			document.querySelector< HTMLInputElement >( 'input[name="s"]' );
 		if ( searchInput ) {
 			searchInput.value = query;
 		}
@@ -56,6 +57,7 @@ class SearchIsland extends HTMLElement {
 		const queryTitle = document.querySelector( '.wp-block-query-title' );
 		if ( queryTitle ) {
 			queryTitle.textContent = sprintf(
+				/* translators: %s: the search query. */
 				__( 'Search results for: "%s"', 'dm-static-interactivity' ),
 				query
 			);

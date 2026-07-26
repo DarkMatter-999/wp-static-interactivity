@@ -57,7 +57,7 @@ class Assets {
 
 		$style_asset = include SI_PLUGIN_PATH . 'assets/build/css/main.asset.php';
 		wp_enqueue_style(
-			'main-css',
+			'dmsi-main-css',
 			SI_PLUGIN_URL . 'assets/build/css/main.css',
 			$style_asset['dependencies'],
 			$style_asset['version']
@@ -66,7 +66,7 @@ class Assets {
 		$script_asset = include SI_PLUGIN_PATH . 'assets/build/js/main.asset.php';
 
 		wp_enqueue_script(
-			'main-js',
+			'dmsi-main-js',
 			SI_PLUGIN_URL . 'assets/build/js/main.js',
 			array_merge( $script_asset['dependencies'], array( 'dm-si-settings' ) ),
 			$script_asset['version'],
@@ -77,7 +77,7 @@ class Assets {
 			$search_script_asset = include SI_PLUGIN_PATH . 'assets/build/js/search.asset.php';
 
 			wp_enqueue_script(
-				'search-js',
+				'dmsi-search-js',
 				SI_PLUGIN_URL . 'assets/build/js/search.js',
 				array_merge( $search_script_asset['dependencies'], array( 'dm-si-settings' ) ),
 				$search_script_asset['version'],
@@ -89,7 +89,7 @@ class Assets {
 			$comments_script_asset = include SI_PLUGIN_PATH . 'assets/build/js/comments.asset.php';
 
 			wp_enqueue_script(
-				'comments-js',
+				'dmsi-comments-js',
 				SI_PLUGIN_URL . 'assets/build/js/comments.js',
 				array_merge( $comments_script_asset['dependencies'], array( 'dm-si-settings' ) ),
 				$comments_script_asset['version'],

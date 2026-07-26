@@ -31,6 +31,7 @@ class Search {
 	 * @return void
 	 */
 	private function __construct() {
+		add_action( 'pre_get_posts', array( $this, 'handle_search_page_query' ) );
 		add_action( 'save_post', array( $this, 'schedule_post_sync' ), 10, 2 );
 		add_action( 'dm_si_sync_post_to_supabase', array( $this, 'sync_post_to_supabase' ) );
 		add_action( 'before_delete_post', array( $this, 'delete_post_from_supabase' ), 10, 1 );
@@ -38,6 +39,36 @@ class Search {
 		add_action( 'render_block', array( $this, 'override_search_loop' ), 10, 2 );
 		add_action( 'wp_ajax_dm_si_replace_index', array( $this, 'ajax_replace_index' ) );
 		add_filter( 'template_include', array( $this, 'load_search_template' ) );
+	}
+
+	/**
+	 * Normalize the main query when visiting /<slug>/?s=query.
+	 *
+	 * WordPress sees both pagename and s query vars, which conflict and cause a 404.
+	 * This strips the page portion so the query becomes a clean search query.
+	 *
+	 * @param \WP_Query $query The query object.
+	 *
+	 * @return void
+	 */
+	public function handle_search_page_query( $query ) {
+		if ( ! $query->is_main_query() ) {
+			return;
+		}
+
+		$search_slug = Options::search_slug();
+		$pagename    = $query->get( 'pagename' );
+		$s           = $query->get( 's' );
+
+		if ( $pagename !== $search_slug || empty( $s ) ) {
+			return;
+		}
+
+		$query->is_page     = false;
+		$query->is_search   = true;
+		$query->is_singular = false;
+		$query->set( 'pagename', null );
+		$query->set( 'page_id', null );
 	}
 
 	/**

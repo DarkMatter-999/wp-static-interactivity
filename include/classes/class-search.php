@@ -283,7 +283,12 @@ class Search {
 				$saved_post_count = $GLOBALS['wp_query']->post_count;
 				$saved_max_pages  = $GLOBALS['wp_query']->max_num_pages;
 
-				$GLOBALS['wp_query']->posts         = array_slice( $saved_posts, 0, 1 );
+				$template_posts = array_slice( $saved_posts, 0, 1 );
+				if ( empty( $template_posts ) ) {
+					$template_posts = array( $this->get_dummy_post() );
+				}
+
+				$GLOBALS['wp_query']->posts         = $template_posts;
 				$GLOBALS['wp_query']->post_count    = count( $GLOBALS['wp_query']->posts );
 				$GLOBALS['wp_query']->max_num_pages = 1;
 
@@ -316,5 +321,27 @@ class Search {
 		}
 
 		return $block_content;
+	}
+
+	/**
+	 * Get a dummy WP_Post to use as a template placeholder when no real posts exist.
+	 *
+	 * @return \WP_Post
+	 */
+	private static function get_dummy_post() {
+		return new \WP_Post(
+			(object) array(
+				'ID'            => 0,
+				'post_title'    => __( 'Search Result', 'dm-static-interactivity' ),
+				'post_excerpt'  => '',
+				'post_content'  => '',
+				'post_type'     => 'post',
+				'post_status'   => 'publish',
+				'post_author'   => 0,
+				'post_date'     => current_time( 'mysql' ),
+				'post_date_gmt' => current_time( 'mysql', true ),
+				'filter'        => 'raw',
+			)
+		);
 	}
 }

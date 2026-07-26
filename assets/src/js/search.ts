@@ -180,7 +180,19 @@ class SearchIsland extends HTMLElement {
 		}
 		postList.innerHTML = '';
 
-		results.forEach( ( result ) => {
+		this.renderPostItems( results, itemTemplate, postList );
+
+		this.resultsContainer.appendChild( wrapper );
+
+		this.renderPagination();
+	}
+
+	private renderPostItems(
+		items: SearchResult[],
+		itemTemplate: Element,
+		postList: Element
+	) {
+		items.forEach( ( result ) => {
 			const clone = itemTemplate.cloneNode( true ) as HTMLElement;
 
 			const titleLinks = clone.querySelectorAll( 'h2 a, h3 a' );
@@ -210,34 +222,45 @@ class SearchIsland extends HTMLElement {
 
 			postList.appendChild( clone );
 		} );
-
-		this.resultsContainer.appendChild( wrapper );
-
-		this.renderPagination();
 	}
 
 	private async renderNoResults() {
-		let html = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
+		this.resultsContainer.innerHTML = `<div class="wp-block-group has-text-align-center" style="padding:2rem 0"><p>${ __(
 			'No results found.',
 			'dm-static-interactivity'
-		) }</p>`;
+		) }</p></div>`;
 
 		if ( this.config.enable_suggestions !== false ) {
 			const suggestions = await this.fetchSuggestions();
 			if ( suggestions.length > 0 ) {
-				html += `<div style="margin-top:2rem"><p><strong>${ __(
-					'Suggestions:',
-					'dm-static-interactivity'
-				) }</strong></p><ul style="list-style:none;padding:0">`;
-				suggestions.forEach( ( post ) => {
-					html += `<li style="margin-bottom:0.5rem"><a href="${ post.permalink }">${ post.title }</a></li>`;
-				} );
-				html += '</ul></div>';
+				this.renderSuggestionResults( suggestions );
 			}
 		}
+	}
 
-		html += '</div>';
-		this.resultsContainer.innerHTML = html;
+	private renderSuggestionResults( suggestions: SearchResult[] ) {
+		const wrapper = this.template.content.cloneNode( true );
+		const root = wrapper.children[ 0 ] as HTMLElement;
+		if ( ! root ) {
+			return;
+		}
+		const postList =
+			root.querySelector( '.wp-block-post-template' ) ||
+			root.children[ 0 ];
+		if ( ! postList ) {
+			return;
+		}
+		const itemTemplate =
+			postList.querySelector( '.wp-block-post' ) ||
+			( postList.children[ 0 ] as HTMLElement );
+		if ( ! itemTemplate ) {
+			return;
+		}
+		postList.innerHTML = '';
+
+		this.renderPostItems( suggestions, itemTemplate, postList );
+
+		this.resultsContainer.appendChild( wrapper );
 	}
 
 	private renderPagination() {

@@ -39,6 +39,7 @@ class Settings {
 		register_setting( 'dm_si_options', 'dm_si_supabase_publishable_key', 'sanitize_text_field' );
 		register_setting( 'dm_si_options', 'dm_si_supabase_secret_key', 'sanitize_text_field' );
 		register_setting( 'dm_si_options', 'dm_si_search_slug', 'sanitize_title' );
+		register_setting( 'dm_si_options', 'dm_si_enable_suggestions', 'wp_validate_boolean' );
 	}
 
 	/**
@@ -248,6 +249,15 @@ class Settings {
 					<tr valign="top">
 						<th scope="row"><?php esc_html_e( 'Search Slug', 'dm-static-interactivity' ); ?></th>
 						<td><input type="text" name="dm_si_search_slug" value="<?php echo esc_attr( Options::search_slug() ); ?>" class="regular-text" /></td>
+					</tr>
+					<tr valign="top">
+						<th scope="row"><?php esc_html_e( 'Search Suggestions', 'dm-static-interactivity' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="dm_si_enable_suggestions" value="1" <?php checked( Options::suggestions_enabled() ); ?> />
+								<?php esc_html_e( 'Show related post suggestions when no search results are found', 'dm-static-interactivity' ); ?>
+							</label>
+						</td>
 					</tr>
 				</table>
 				<?php submit_button(); ?>

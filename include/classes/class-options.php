@@ -57,4 +57,13 @@ class Options {
 	public static function supabase_secret_key() {
 		return get_option( 'dm_si_supabase_secret_key', '' );
 	}
+
+	/**
+	 * Whether search suggestions are enabled.
+	 *
+	 * @return bool
+	 */
+	public static function suggestions_enabled() {
+		return get_option( 'dm_si_enable_suggestions', false );
+	}
 }

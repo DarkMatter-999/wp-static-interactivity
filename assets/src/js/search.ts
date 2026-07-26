@@ -222,16 +222,18 @@ class SearchIsland extends HTMLElement {
 			'dm-static-interactivity'
 		) }</p>`;
 
-		const suggestions = await this.fetchSuggestions();
-		if ( suggestions.length > 0 ) {
-			html += `<div style="margin-top:2rem"><p><strong>${ __(
-				'Suggestions:',
-				'dm-static-interactivity'
-			) }</strong></p><ul style="list-style:none;padding:0">`;
-			suggestions.forEach( ( post ) => {
-				html += `<li style="margin-bottom:0.5rem"><a href="${ post.permalink }">${ post.title }</a></li>`;
-			} );
-			html += '</ul></div>';
+		if ( this.config.enable_suggestions !== false ) {
+			const suggestions = await this.fetchSuggestions();
+			if ( suggestions.length > 0 ) {
+				html += `<div style="margin-top:2rem"><p><strong>${ __(
+					'Suggestions:',
+					'dm-static-interactivity'
+				) }</strong></p><ul style="list-style:none;padding:0">`;
+				suggestions.forEach( ( post ) => {
+					html += `<li style="margin-bottom:0.5rem"><a href="${ post.permalink }">${ post.title }</a></li>`;
+				} );
+				html += '</ul></div>';
+			}
 		}
 
 		html += '</div>';
